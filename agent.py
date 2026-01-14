@@ -8,7 +8,7 @@ from livekit.plugins import noise_cancellation, silero
 from livekit.plugins import azure, elevenlabs, openai
 from config import Config
 
-
+#Jr Enginner
 class JrEngg(Agent):
     def __init__(self) -> None:
         super().__init__(
