@@ -1,0 +1,6 @@
+.env
+.env.local
+.gitignore.swp
+.venv
+__pycache__/
+.venv/
