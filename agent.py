@@ -7,77 +7,27 @@ from livekit.agents import AgentServer, AgentSession, Agent, room_io, function_t
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins import azure, elevenlabs, openai
 from config import Config
+from prompts import Prompts
+from tools import fetch_dsa_question, validate_dsa_answer, give_hint
 
-class BaseAgent(Agent):
-    def _transfer_to_agent(self, agent_name: str):
+
 #Junior engg
-class JrEngg(Agent):
+class Engg(Agent):
     def __init__(self, chat_ctx=None):
         super().__init__(
             chat_ctx=chat_ctx,
-            instructions="""You are a junior software engineer helping conduct an interview.
-            You start the interview, greet the candidate, and ask them to introduce themselves.
-            You ask exactly two basic background questions.
-            After that, you MUST hand over the interview by calling the handover_to_senior tool.
-            Keep things friendly, short, and natural."""
-
+            instructions=Prompts.engg_base_prompt,
+            tools=[
+                fetch_dsa_question,
+                validate_dsa_answer,
+                give_hint,
+            ]
         )
 
     async def on_enter(self)->None:
         await self.session.generate_reply(
             instructions="Greet the candidate, introduce yourself, and ask them to introduce themselves."
         )
-
-    @function_tool()
-    async def handover_to_senior(self, context: RunContext):
-        """Hand over the interview to the senior engineer."""
-        return SrEngg(chat_ctx=self.chat_ctx), "Handing over to senior engineer"
-
-#Senior engg
-class SrEngg(Agent):
-    def __init__(self, chat_ctx=None) -> None:
-        super().__init__(
-            chat_ctx=chat_ctx,
-            instructions="""You are a senior software engineer leading the technical interview.
-            You continue after the junior engineer hands over.
-            You ask two or three technical questions calmly and professionally.
-            Before finishing, you MUST ask the junior engineer if they have questions.
-            Then you MUST return control by calling the handover_to_junior tool."""
-        )
-
-
-    async def on_enter(self) -> None:
-        await self.session.generate_reply(
-            instructions="Acknowledge the handover and start the technical interview."
-        )
-
-    @function_tool()
-    async def handover_to_junior(self, context: RunContext):
-        """Hand over the interview to the junior engineer."""
-        return Hr(chat_ctx=self.chat_ctx), "Returning to HR"
-
-
-#HR
-class Hr(Agent):
-    def __init__(self, chat_ctx=None):
-        super().__init__(
-            chat_ctx=chat_ctx,
-            instructions="""You are an HR representative closing a candidate interview.
-                            You politely take over at the end of the interview.
-                            You thank the candidate for their time.
-                            You briefly explain the next steps in the hiring process.
-                            You tell the candidate that the team will review their interview and get back to them.
-                            You keep the tone calm, professional, and reassuring.
-                            You do not ask any questions.
-                            You keep responses short, clear, and natural.
-                            You end the conversation politely."""
-            )
-
-    async def on_enter(self) -> None:
-        await self.session.generate_reply(
-            instructions="Politely close the interview and explain the next steps."
-        )
-
 
 server = AgentServer()
 
@@ -114,7 +64,6 @@ def _create_llm_plugin():
 
 @server.rtc_session()
 async def interview_agent(ctx: agents.JobContext):
-
     stt_plugin = _create_stt_plugin()
 
     tts_plugin = _create_tts_plugin()
@@ -130,7 +79,7 @@ async def interview_agent(ctx: agents.JobContext):
 
     await session.start(
         room=ctx.room,
-        agent=JrEngg(),
+        agent=Engg(),
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),

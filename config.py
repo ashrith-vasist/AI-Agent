@@ -2,6 +2,11 @@ from os import statvfs_result
 import os
 
 class Config:
+    #livekit
+    livekit_api_key = os.getenv("LIVEKIT_API_KEY")
+    livekit_api_secret = os.getenv("LIVEKIT_API_SECRET")
+    livekit_url = os.getenv("LIVEKIT_URL")
+
     #Azure stt
     azure_speech_region: str = os.getenv("AZURE_SPEECH_REGION")
     azure_speech_key: str = os.getenv("AZURE_SPEECH_KEY")
