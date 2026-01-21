@@ -1,15 +1,14 @@
 from dotenv import load_dotenv
 load_dotenv(".env.local")
 
-import os
+
 from livekit import agents, rtc
-from livekit.agents import AgentServer, AgentSession, Agent, room_io, function_tool, RunContext
+from livekit.agents import AgentServer, AgentSession, Agent, room_io
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins import azure, elevenlabs, openai
 from config import Config
 from prompts import Prompts
 from tools import fetch_dsa_question, validate_dsa_answer, give_hint
-
 
 #Junior engg
 class Engg(Agent):
@@ -25,11 +24,17 @@ class Engg(Agent):
         )
 
     async def on_enter(self)->None:
-        await self.session.generate_reply(
-            instructions="Greet the candidate, introduce yourself, and ask them to introduce themselves."
-        )
+        pass
 
-server = AgentServer()
+server = AgentServer(
+    api_key=Config.livekit_api_key,
+    api_secret=Config.livekit_api_secret,
+    ws_url=Config.livekit_url,
+    drain_timeout=900,
+    shutdown_process_timeout=660,
+    load_threshold= 0.7,
+)
+
 
 def _create_stt_plugin():
     stt_azure_languages = ["en-IN"]
@@ -64,6 +69,7 @@ def _create_llm_plugin():
 
 @server.rtc_session()
 async def interview_agent(ctx: agents.JobContext):
+
     stt_plugin = _create_stt_plugin()
 
     tts_plugin = _create_tts_plugin()
@@ -77,15 +83,25 @@ async def interview_agent(ctx: agents.JobContext):
         vad=vad,
     )
 
+    agent = Engg()
+
     await session.start(
         room=ctx.room,
-        agent=Engg(),
+        agent=agent,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),
+                noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
+                if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                else noise_cancellation.BVC(),
             ),
         ),
     )
+
+    await agent.session.generate_reply(
+        instructions="Greet the candidate, introduce yourself, and ask them to introduce themselves."
+    )
+
+
 
 if __name__ == "__main__":
     agents.cli.run_app(server)
